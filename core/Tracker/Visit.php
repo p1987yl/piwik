@@ -195,33 +195,35 @@ class Visit implements VisitInterface
     	$request = $this->request->getParams();
     	$properties = $this->visitProperties->getProperties();
     	$idaction_visit_time = date("Y-m-d", time())." ".$this->request->getLocalTime();    	
+        list($micro_seconds, $seconds) = explode(" ", microtime());
+        $visittime = (float)sprintf('%.0f', (floatval($seconds) + floatval($micro_seconds)) * 1000);
     	$request_data = [];
-//     	$urls = parse_url($request['url']);
+    	$urls = parse_url($request['url']);
     	$request_data['user_id'] = isset($request['uid']) && $request['uid'] ? $request['uid'] : 0;
     	$request_data['location_ip'] = $this->request->getIpString();
     	$request_data['idsite'] = $request['idsite'];
-    	$request_data['main_url'] = $this->getMainUrl($request['idsite']);//$urls['host'];
+    	$request_data['main_url'] = $urls['host'];
 		$request_data['cookie_id'] = isset($request['_custom_session_id']) && $request['_custom_session_id'] ? $request['_custom_session_id'] : '';
 		$request_data['user_exit_type'] = isset($request['ping']) && $request['ping']  ? $request['ping'] : 0;
 		$request_data['user_type'] = $isNewVisit ? 0 : 1;
 		$request_data['visit_first_action_time'] = str_pad($request['_idts'], 13, "0", STR_PAD_RIGHT);
 		$request_data['visit_last_action_time'] = str_pad($request['_viewts'], 13, "0", STR_PAD_RIGHT);
-		$request_data['idaction_visit_time'] = strtotime("-8 hours", strtotime($idaction_visit_time)).str_pad($request['ms'], 3, "0", STR_PAD_RIGHT);
+		$request_data['idaction_visit_time'] = $visittime;
+		//$request_data['idaction_visit_time'] = strtotime("-8 hours", strtotime($idaction_visit_time)).str_pad($request['ms'], 3, "0", STR_PAD_RIGHT);
 		$request_data['idaction_visit_total_actions'] = $request['_idvc'] ? $request['_idvc'] : 1;
-		$request_data['idaction_url'] = $request['url'];
+		$request_data['idaction_url'] = isset($request['url']) && $request['url'] ? $request['url'] : '';
 		$request_data['idaction_name'] = isset($request['action_name']) && $request['action_name'] ? $request['action_name'] : '';
 		$request_data['referer_url'] = isset($request['urlref']) && $request['urlref'] ? $request['urlref'] : '';
-		$request_data['visit_total_time'] = $properties['visit_total_time'] ? $properties['visit_total_time'] : 0;
-		$request_data['time_spent_ref_action'] = $properties['time_spent_ref_action'] ? $properties['time_spent_ref_action'] : 0;
-		$request_data['response_time'] = $request['gt_ms'];
-		$request_data['config_browser_engine'] = $properties['config_browser_engine'] ? $properties['config_browser_engine'] : '';
-		$request_data['config_browser_name'] = $properties['config_browser_name'] ? $properties['config_browser_name'] : '';
-		$request_data['config_browser_version'] = $properties['config_browser_version'] ? $properties['config_browser_version'] : '';
-		$request_data['config_os'] = $properties['config_os'] ? $properties['config_os'] : 0;
-		$request_data['config_os_version'] = $properties['config_os_version'] ? $properties['config_os_version'] : 0;
+		$request_data['visit_total_time'] = isset($properties['visit_total_time']) && $properties['visit_total_time'] ? $properties['visit_total_time'] : 0;
+		$request_data['time_spent_ref_action'] = isset($properties['time_spent_ref_action']) && $properties['time_spent_ref_action'] ? $properties['time_spent_ref_action'] : 0;
+		$response_time = $this->request->getPageGenerationTime();
+		$request_data['response_time'] = $response_time ? $response_time : 0;
+		$request_data['config_browser_engine'] = isset($properties['config_browser_engine']) && $properties['config_browser_engine'] ? $properties['config_browser_engine'] : '';
+		$request_data['config_browser_name'] = isset($properties['config_browser_name']) && $properties['config_browser_name'] ? $properties['config_browser_name'] : '';
+		$request_data['config_browser_version'] = isset($properties['config_browser_version']) && $properties['config_browser_version'] ? $properties['config_browser_version'] : '';
+		$request_data['config_os'] = isset($properties['config_os']) && $properties['config_os'] ? $properties['config_os'] : 0;
+		$request_data['config_os_version'] = isset($properties['config_os_version']) && $properties['config_os_version'] ? $properties['config_os_version'] : 0;
 		$data['bodys'][] = $request_data;
-		list($micro_seconds, $seconds) = explode(" ", microtime());
-		$visittime = (float)sprintf('%.0f', (floatval($seconds) + floatval($micro_seconds)) * 1000);
 		$data['heads'] = [
 							'callTime' => $visittime, 
 							'platPassword' => '123qwe', 
@@ -266,12 +268,6 @@ class Visit implements VisitInterface
     	file_put_contents($path."response.log", var_export($data, true)."\n", FILE_APPEND);
     }
     
-    public function getMainUrl($idSite){
-    	$site = new Site($idSite);
-    	$siteMainUrl = $site->getMainUrl();
-    	return $siteMainUrl;
-    }
-
     /**
      * In the case of a known visit, we have to do the following actions:
      *

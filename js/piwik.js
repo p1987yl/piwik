@@ -2956,7 +2956,12 @@ if (typeof window.Piwik !== 'object') {
 
                 // Hash function
                 hash = sha1,
-
+                
+            	//ping=1 only send once
+            	heartBeatPing = false,
+            	
+            	heartBeatEventTimeout,
+            	
                 // Domain hash value
                 domainHash;
 
@@ -3310,9 +3315,11 @@ if (typeof window.Piwik !== 'object') {
                         heartBeatUp(configHeartBeatDelay);
                         return;
                     }
-
-                    if (heartBeatPingIfActivityAlias()) {
-                        return;
+                    
+                    if (!heartBeatPing) {
+                    	if (heartBeatPingIfActivityAlias()) {
+                    		return;
+                    	}
                     }
 
                     var now = new Date(),
@@ -3340,17 +3347,59 @@ if (typeof window.Piwik !== 'object') {
 
                 // since it's possible for a user to come back to a tab after several hours or more, we try to send
                 // a ping if the page is active. (after the ping is sent, the heart beat timeout will be set)
-                if (heartBeatPingIfActivityAlias()) {
-                    return;
+                if (!heartBeatPing) {
+                    if (heartBeatPingIfActivityAlias()) {
+                        return;
+                    } 
                 }
-
                 heartBeatUp();
             }
 
             function heartBeatOnBlur() {
-                heartBeatDown();
+//                hadWindowFocusAtLeastOnce = true;
+                // since it's possible for a user to come back to a tab after several hours or more, we try to send
+                // a ping if the page is active. (after the ping is sent, the heart beat timeout will be set)
+                if (!heartBeatPing) {
+                    if (heartBeatPingIfActivityAlias()) {
+                        return;
+                    }
+                } else {
+                	heartBeatDown();
+                }
+                heartBeatUp();         	
             }
 
+            function heartBeatOnEvent(){
+            	heartBeatOnEventClean();
+            	heartBeatEventUp();
+            }
+            
+            function heartBeatOnEventClean(){
+                if (!heartBeatEventTimeout) {
+                    return;
+                }
+            	clearTimeout(heartBeatEventTimeout);
+            	heartBeatEventTimeout = null;
+            }
+            
+            function heartBeatEventUp(delay){
+                heartBeatEventTimeout = setTimeout(function() {
+                    //一旦超时，进行处理  
+                	if (!heartBeatPing) {
+	                   	console.log("1111");
+	                	if (heartBeatPingIfActivityAlias()) {
+	                		heartBeatOnEventClean();
+	                		return;
+	                	} 
+                	}
+                    var now = new Date(),
+                    heartBeatDelay = configHeartBeatDelay - (now.getTime() - lastTrackerRequestTime);
+	                // sanity check
+	                heartBeatDelay = Math.min(configHeartBeatDelay, heartBeatDelay);
+	                heartBeatEventUp(heartBeatDelay);              
+            	 }, delay || configHeartBeatDelay
+               );
+            }
             /*
              * Setup event handlers and timeout for initial heart beat.
              */
@@ -3363,10 +3412,13 @@ if (typeof window.Piwik !== 'object') {
 
                 heartBeatSetUp = true;
 
-                addEventListener(windowAlias, 'focus', heartBeatOnFocus);
-                addEventListener(windowAlias, 'blur', heartBeatOnBlur);
-
-                heartBeatUp();
+                addEventListener(windowAlias, 'mousemove', heartBeatOnEvent);
+                addEventListener(windowAlias, 'mousedown', heartBeatOnEvent);
+                addEventListener(windowAlias, 'keydown', heartBeatOnEvent);
+                addEventListener(windowAlias, 'keypress', heartBeatOnEvent);
+                addEventListener(windowAlias, 'touchmove', heartBeatOnEvent);
+                addEventListener(windowAlias, 'touchstart', heartBeatOnEvent);
+                heartBeatEventUp();
             }
 
             function makeSureThereIsAGapAfterFirstTrackingRequestToPreventMultipleVisitorCreation(callback)
@@ -3821,7 +3873,8 @@ if (typeof window.Piwik !== 'object') {
                     // we only increase visitCount once per Visit window (default 30min)
                     var visitDuration = configSessionCookieTimeout;
                     if (!cookieVisitorIdValues.lastVisitTs
-                        || (nowTs - cookieVisitorIdValues.lastVisitTs) > visitDuration) {
+                        || (nowTs - cookieVisitorIdValues.lastVisitTs) > visitDuration
+                        || (new Date(nowTs).getDate() - new Date(cookieVisitorIdValues.lastVisitTs).getDate() != 0)) {//修改：零点后算新用户访问
                         cookieVisitorIdValues.visitCount++;
                         cookieVisitorIdValues.lastVisitTs = cookieVisitorIdValues.currentVisitTs;
                     }
@@ -4013,10 +4066,10 @@ if (typeof window.Piwik !== 'object') {
                 if (lastTrackerRequestTime + configHeartBeatDelay <= now.getTime()) {
                     var requestPing = getRequest('ping=1', null, 'ping');
                     sendRequest(requestPing, configTrackerPause);
-
+                    heartBeatPing = true;
                     return true;
                 }
-
+                heartBeatPing = false;
                 return false;
             };
 

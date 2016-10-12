@@ -146,6 +146,14 @@ class VisitRequestProcessor extends RequestProcessor
         if (!$isKnown) {
             return true;
         }
+        $wasLastActionYesterday = $this->wasLastActionNotToday($visitProperties, $request);
+        $forceNewVisitAtMidnight = (bool) Config::getInstance()->Tracker['create_new_visit_after_midnight'];
+	//在零点，强制转为新用户
+        if ($wasLastActionYesterday && $forceNewVisitAtMidnight) {
+            Common::printDebug("Visitor detected, but last action was yesterday...");
+
+            return true;
+        }
 
         $isLastActionInTheSameVisit = $this->isLastActionInTheSameVisit($visitProperties, $request);
         if (!$isLastActionInTheSameVisit) {
@@ -154,14 +162,6 @@ class VisitRequestProcessor extends RequestProcessor
             return true;
         }
 
-        $wasLastActionYesterday = $this->wasLastActionNotToday($visitProperties, $request);
-        $forceNewVisitAtMidnight = (bool) Config::getInstance()->Tracker['create_new_visit_after_midnight'];
-
-        if ($wasLastActionYesterday && $forceNewVisitAtMidnight) {
-            Common::printDebug("Visitor detected, but last action was yesterday...");
-
-            return true;
-        }
 
         return false;
     }
